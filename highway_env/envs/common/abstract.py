@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import os
 from typing import TypeVar
-
+import random
 import gymnasium as gym
 import numpy as np
 from gymnasium import Wrapper
@@ -106,6 +106,7 @@ class AbstractEnv(gym.Env):
             "offscreen_rendering": os.environ.get("OFFSCREEN_RENDERING", "0") == "1",
             "manual_control": False,
             "real_time_rendering": False,
+            "seed": 0,
         }
 
     def configure(self, config: dict) -> None:
@@ -198,7 +199,13 @@ class AbstractEnv(gym.Env):
         :param options: Allows the environment configuration to specified through `options["config"]`
         :return: the observation of the reset state
         """
+        # 在这之前未设置随机数种子
+        # 这里随机选择一个随机数种子，并调用 super().reset()方法设置
+        seed_list = [0, 2000, 2024]
+        seed = random.choice(seed_list)
+        self.seed = seed
         super().reset(seed=seed, options=options)
+        
         if options and "config" in options:
             self.configure(options["config"])
         self.update_metadata()
@@ -236,7 +243,8 @@ class AbstractEnv(gym.Env):
                 "The road and vehicle must be initialized in the environment implementation"
             )
 
-        self.time += 1 / self.config["policy_frequency"]
+        # self.time += 1 / self.config["policy_frequency"]
+        self.time += 1 / self.config["simulation_frequency"]
         self._simulate(action)
 
         obs = self.observation_type.observe()
@@ -249,35 +257,47 @@ class AbstractEnv(gym.Env):
 
         return obs, reward, terminated, truncated, info
 
+    # def _simulate(self, action: Action | None = None) -> None:
+    #     """Perform several steps of simulation with constant action."""
+    #     frames = int(
+    #         self.config["simulation_frequency"] // self.config["policy_frequency"]
+    #     )
+    #     for frame in range(frames):
+    #         # Forward action to the vehicle
+    #         if (
+    #             action is not None
+    #             and not self.config["manual_control"]
+    #             and self.steps
+    #             % int(
+    #                 self.config["simulation_frequency"]
+    #                 // self.config["policy_frequency"]
+    #             )
+    #             == 0
+    #         ):
+    #             self.action_type.act(action)
+
+    #         self.road.act()
+    #         self.road.step(1 / self.config["simulation_frequency"])
+    #         self.steps += 1
+
+    #         # Automatically render intermediate simulation steps if a viewer has been launched
+    #         # Ignored if the rendering is done offscreen
+    #         if (
+    #             frame < frames - 1
+    #         ):  # Last frame will be rendered through env.render() as usual
+    #             self._automatic_rendering()
+
+    #     self.enable_auto_render = False
+    
     def _simulate(self, action: Action | None = None) -> None:
         """Perform several steps of simulation with constant action."""
-        frames = int(
-            self.config["simulation_frequency"] // self.config["policy_frequency"]
-        )
-        for frame in range(frames):
-            # Forward action to the vehicle
-            if (
-                action is not None
-                and not self.config["manual_control"]
-                and self.steps
-                % int(
-                    self.config["simulation_frequency"]
-                    // self.config["policy_frequency"]
-                )
-                == 0
-            ):
-                self.action_type.act(action)
+        self.action_type.act(action)
 
-            self.road.act()
-            self.road.step(1 / self.config["simulation_frequency"])
-            self.steps += 1
+        self.road.act()
+        self.road.step(1 / self.config["simulation_frequency"])
+        self.steps += 1
 
-            # Automatically render intermediate simulation steps if a viewer has been launched
-            # Ignored if the rendering is done offscreen
-            if (
-                frame < frames - 1
-            ):  # Last frame will be rendered through env.render() as usual
-                self._automatic_rendering()
+        self._automatic_rendering()
 
         self.enable_auto_render = False
 

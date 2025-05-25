@@ -41,16 +41,17 @@ class IntersectionEnv(AbstractEnv):
                 },
                 "duration": 13,  # [s]
                 "destination": "o1",
-                "controlled_vehicles": 1,
+                "controlled_vehicles": 3,
                 "initial_vehicle_count": 10,
                 "spawn_probability": 0.6,
                 "screen_width": 600,
                 "screen_height": 600,
                 "centering_position": [0.5, 0.6],
                 "scaling": 5.5 * 1.3,
-                "collision_reward": -5,
-                "high_speed_reward": 1,
-                "arrived_reward": 1,
+                "collision_reward": -30,
+                "high_speed_reward": 3,
+                "arrived_reward": 5, 
+                "stop_reward": -2,
                 "reward_speed_range": [7.0, 9.0],
                 "normalize_reward": False,
                 "offroad_terminal": False,
@@ -82,7 +83,7 @@ class IntersectionEnv(AbstractEnv):
             self.config.get(name, 0) * reward for name, reward in rewards.items()
         )
         reward = self.config["arrived_reward"] if rewards["arrived_reward"] else reward
-        reward *= rewards["on_road_reward"]
+        # reward *= rewards["on_road_reward"]
         if self.config["normalize_reward"]:
             reward = utils.lmap(
                 reward,
@@ -94,16 +95,21 @@ class IntersectionEnv(AbstractEnv):
     def _agent_rewards(self, action: int, vehicle: Vehicle) -> dict[str, float]:
         """Per-agent per-objective reward signal."""
         scaled_speed = utils.lmap(
-            vehicle.speed, self.config["reward_speed_range"], [0, 1]
+            vehicle.speed, self.config["reward_speed_range"], [-1, 1]
         )
         return {
             "collision_reward": vehicle.crashed,
-            "high_speed_reward": np.clip(scaled_speed, 0, 1),
+            "high_speed_reward": np.clip(scaled_speed, -1, 1),
             "arrived_reward": self.has_arrived(vehicle),
-            "on_road_reward": vehicle.on_road,
+            "stop_reward": vehicle.speed == 0,
         }
 
     def _is_terminated(self) -> bool:
+        for vehicle in self.road.vehicles:
+            if self.has_arrived(vehicle):
+                vehicle.speed = 0
+                vehicle.action["acceleration"] = 0
+                vehicle.action["steering"] = 0
         return (
             any(vehicle.crashed for vehicle in self.controlled_vehicles)
             or all(self.has_arrived(vehicle) for vehicle in self.controlled_vehicles)
@@ -135,7 +141,6 @@ class IntersectionEnv(AbstractEnv):
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict]:
         obs, reward, terminated, truncated, info = super().step(action)
         self._clear_vehicles()
-        self._spawn_vehicle(spawn_probability=self.config["spawn_probability"])
         return obs, reward, terminated, truncated, info
 
     def _make_road(self) -> None:
@@ -157,7 +162,7 @@ class IntersectionEnv(AbstractEnv):
         right_turn_radius = lane_width + 5  # [m}
         left_turn_radius = right_turn_radius + lane_width  # [m}
         outer_distance = right_turn_radius + lane_width / 2
-        access_length = 50 + 50  # [m]
+        access_length = 20  # [m]
 
         net = RoadNetwork()
         n, c, s = LineType.NONE, LineType.CONTINUOUS, LineType.STRIPED
@@ -260,85 +265,46 @@ class IntersectionEnv(AbstractEnv):
         vehicle_type.COMFORT_ACC_MAX = 6
         vehicle_type.COMFORT_ACC_MIN = -3
 
-        # Random vehicles
-        simulation_steps = 3
-        for t in range(n_vehicles - 1):
-            self._spawn_vehicle(np.linspace(0, 80, n_vehicles)[t])
-        for _ in range(simulation_steps):
-            [
-                (
-                    self.road.act(),
-                    self.road.step(1 / self.config["simulation_frequency"]),
-                )
-                for _ in range(self.config["simulation_frequency"])
-            ]
-
-        # Challenger vehicle
-        self._spawn_vehicle(
-            60,
-            spawn_probability=1,
-            go_straight=True,
-            position_deviation=0.1,
-            speed_deviation=0,
-        )
-
-        # Controlled vehicles
+        self._spawn_vehicle(longitudinal = 10 * self.np_random.random(), route=[3,0])
         self.controlled_vehicles = []
-        for ego_id in range(0, self.config["controlled_vehicles"]):
-            ego_lane = self.road.network.get_lane(
-                (f"o{ego_id % 4}", f"ir{ego_id % 4}", 0)
-            )
-            destination = self.config["destination"] or "o" + str(
-                self.np_random.integers(1, 4)
-            )
+        
+        for ego_id in range(self.config["controlled_vehicles"]):
+            ego_lane = self.road.network.get_lane((f"o{ego_id}", f"ir{ego_id}", 0))
+            destination = f"o{(ego_id + 1) % 4}"
+            
             ego_vehicle = self.action_type.vehicle_class(
                 self.road,
-                ego_lane.position(60 + 5 * self.np_random.normal(1), 0),
+                ego_lane.position(10 * self.np_random.random(), 0), 
                 speed=ego_lane.speed_limit,
                 heading=ego_lane.heading_at(60),
             )
+            ego_vehicle.id = ego_id + 1
             try:
+                # 规划路径到随机终点
                 ego_vehicle.plan_route_to(destination)
-                ego_vehicle.speed_index = ego_vehicle.speed_to_index(
-                    ego_lane.speed_limit
-                )
-                ego_vehicle.target_speed = ego_vehicle.index_to_speed(
-                    ego_vehicle.speed_index
-                )
+                ego_vehicle.speed_index = ego_vehicle.speed_to_index(ego_lane.speed_limit)
+                ego_vehicle.target_speed = ego_vehicle.index_to_speed(ego_vehicle.speed_index)
             except AttributeError:
                 pass
 
+            # 将车辆加入道路环境
             self.road.vehicles.append(ego_vehicle)
             self.controlled_vehicles.append(ego_vehicle)
-            for v in self.road.vehicles:  # Prevent early collisions
-                if (
-                    v is not ego_vehicle
-                    and np.linalg.norm(v.position - ego_vehicle.position) < 20
-                ):
-                    self.road.vehicles.remove(v)
 
+    # 蓝色的环境车辆
     def _spawn_vehicle(
         self,
         longitudinal: float = 0,
-        position_deviation: float = 1.0,
-        speed_deviation: float = 1.0,
-        spawn_probability: float = 0.6,
-        go_straight: bool = False,
+        route: list[int] = [3, 0],
     ) -> None:
-        if self.np_random.uniform() > spawn_probability:
-            return
-
-        route = self.np_random.choice(range(4), size=2, replace=False)
-        route[1] = (route[0] + 2) % 4 if go_straight else route[1]
         vehicle_type = utils.class_from_path(self.config["other_vehicles_type"])
         vehicle = vehicle_type.make_on_lane(
             self.road,
             ("o" + str(route[0]), "ir" + str(route[0]), 0),
-            longitudinal=(
-                longitudinal + 5 + self.np_random.normal() * position_deviation
-            ),
-            speed=8 + self.np_random.normal() * speed_deviation,
+            longitudinal=longitudinal,
+            speed = 8,
         )
+        vehicle.id = 0
         for v in self.road.vehicles:
             if np.linalg.norm(v.position - vehicle.position) < 15:
                 return

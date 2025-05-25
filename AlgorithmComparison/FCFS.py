@@ -6,9 +6,9 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 
 class FCFS:
     def __init__(self):
-        # 初始化参数，例如环境、网络结构、超参数等
+        # 初始化参数
         pass
 
     def run(self):
-        print("Running PPO algorithm...")
+        print("Running FCFS algorithm...")
         # 训练逻辑写在这里
