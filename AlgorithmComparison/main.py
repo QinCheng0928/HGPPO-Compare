@@ -68,7 +68,7 @@ def main():
         
             # 获取当前画面并添加到视频中
             frame = env.render()
-            video_writer.append_data(cv2.resize(frame, (608, 608)))
+            video_writer.append_data(frame)
             
             # 获取当前数据并添加到excel中
             utils.write_excel(workbook, env, row)
