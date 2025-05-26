@@ -15,7 +15,6 @@ IDLE_velocity = 30
 SLOWER_velocity = 20
 
 def fcfs_predict(env):
-    # 获取当前环境中的所有车辆，按照类别保存
     cav = []
     hv = []
     for vehicle in env.road.vehicles:
@@ -23,46 +22,43 @@ def fcfs_predict(env):
             cav.append(vehicle)
         elif isinstance(vehicle, IDMVehicle):
             hv.append(vehicle)
-    actions = [None for _ in range(len(cav))]
     
-    # 检查 HV 是否要通过路口
-    for vehicle in hv:
-        # 判断车辆是否通过路口
-        if "o" in vehicle.lane_index[0] and "ir" in vehicle.lane_index[1]:
-            # HV到交叉口的距离
-            dist = env.config["access_length"] - vehicle.lane.local_coordinates(vehicle.position)[0]
-            # 如果距离小于20米，则认为HV要通过路口
-            # 未通过的cav如果距交叉口太远则保持，比较近则减速，太近的减速
-            # 通过的cav继续加速
-            if dist < 20:
-                for i, veh in enumerate(cav):
-                    if "o" in veh.lane_index[0] and "ir" in veh.lane_index[1]:
-                        tag_action = env.config["access_length"] - veh.lane.local_coordinates(veh.position)[0]
-                        actions[i] = 2 if tag_action > IDLE_velocity else (1 if tag_action > SLOWER_velocity else 0)
-                    else:
-                        actions[i] = 2
-                return tuple(actions)
+    all_vehicles = []
+    for v in hv:
+        if "o" in v.lane_index[0] and "ir" in v.lane_index[1]:
+            dist = env.config["access_length"] - v.lane.local_coordinates(v.position)[0]
+            all_vehicles.append(("hv", None, dist))
+    
+    for i, v in enumerate(cav):
+        if "o" in v.lane_index[0] and "ir" in v.lane_index[1]:
+            dist = env.config["access_length"] - v.lane.local_coordinates(v.position)[0]
+            all_vehicles.append(("cav", i, dist))
 
+    actions = [None for _ in range(len(cav))]
 
-    # 正常执行 FCFS 通行逻辑
-    shortest_index = -1
-    shortest_dis = env.config["access_length"] * 2
-    for i, veh in enumerate(cav):
-        if "o" in veh.lane_index[0] and "ir" in veh.lane_index[1]:
+    # 全部通过加插口，无需通行决策，全部加速
+    if not all_vehicles:
+        return tuple([2 for _ in cav])  
+
+    # 找最小距离的车
+    first = min(all_vehicles, key=lambda x: x[2])
+
+    if first[0] == "hv":
+        # HV 优先：所有 CAV 减速或停车
+        for i, veh in enumerate(cav):
             dist = env.config["access_length"] - veh.lane.local_coordinates(veh.position)[0]
-            if dist < shortest_dis:
-                shortest_dis = dist
-                shortest_index = i
-        else:
-            actions[i] = 2
-            
-    actions[shortest_index] = 2
-    for i in range(len(actions)):
-        if actions[i] is None:
-            tag_action = env.config["access_length"] - env.controlled_vehicles[i].lane.local_coordinates(env.controlled_vehicles[i].position)[0]
-            actions[i] = 2 if tag_action > IDLE_velocity else (1 if tag_action > SLOWER_velocity else 0)
+            actions[i] = 2 if dist > IDLE_velocity else (1 if dist > SLOWER_velocity else 0)
+    else:
+        # CAV 优先：该车放行，其余减速
+        for i, veh in enumerate(cav):
+            if i == first[1]:
+                actions[i] = 2
+            else:
+                dist = env.config["access_length"] - veh.lane.local_coordinates(veh.position)[0]
+                actions[i] = 2 if dist > IDLE_velocity else (1 if dist > SLOWER_velocity else 0)
 
     return tuple(actions)
+
 
 
 
