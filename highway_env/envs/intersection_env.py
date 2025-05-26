@@ -39,7 +39,7 @@ class IntersectionEnv(AbstractEnv):
                     "lateral": False,
                     "target_speeds": [0, 4.5, 9],
                 },
-                "duration": 13,  # [s]
+                "duration": 30,  # [s]
                 "destination": "o1",
                 "controlled_vehicles": 3,
                 "initial_vehicle_count": 10,
@@ -48,6 +48,7 @@ class IntersectionEnv(AbstractEnv):
                 "screen_height": 608,
                 "centering_position": [0.5, 0.6],
                 "scaling": 4.5,
+                "access_length": 50,  # [m]
                 "collision_reward": -30,
                 "high_speed_reward": 3,
                 "arrived_reward": 5, 
@@ -162,7 +163,7 @@ class IntersectionEnv(AbstractEnv):
         right_turn_radius = lane_width + 5  # [m}
         left_turn_radius = right_turn_radius + lane_width  # [m}
         outer_distance = right_turn_radius + lane_width / 2
-        access_length = 50  # [m]
+        access_length = self.config["access_length"]  # [m]
 
         net = RoadNetwork()
         n, c, s = LineType.NONE, LineType.CONTINUOUS, LineType.STRIPED
@@ -265,7 +266,7 @@ class IntersectionEnv(AbstractEnv):
         vehicle_type.COMFORT_ACC_MAX = 6
         vehicle_type.COMFORT_ACC_MIN = -3
 
-        self._spawn_vehicle(longitudinal = 10 * self.np_random.random(), route=[3,0])
+        self._spawn_vehicle(longitudinal = 20 * self.np_random.random(), route=[3,0])
         self.controlled_vehicles = []
         
         for ego_id in range(self.config["controlled_vehicles"]):
@@ -274,7 +275,7 @@ class IntersectionEnv(AbstractEnv):
             
             ego_vehicle = self.action_type.vehicle_class(
                 self.road,
-                ego_lane.position(10 * self.np_random.random(), 0), 
+                ego_lane.position(20 * self.np_random.random(), 0), 
                 speed=ego_lane.speed_limit,
                 heading=ego_lane.heading_at(60),
             )
@@ -313,21 +314,23 @@ class IntersectionEnv(AbstractEnv):
         self.road.vehicles.append(vehicle)
         return vehicle
 
+    # def _clear_vehicles(self) -> None:
+    #     is_leaving = (
+    #         lambda vehicle: "il" in vehicle.lane_index[0]
+    #         and "o" in vehicle.lane_index[1]
+    #         and vehicle.lane.local_coordinates(vehicle.position)[0]
+    #         >= vehicle.lane.length - 4 * vehicle.LENGTH
+    #     )
+    #     self.road.vehicles = [
+    #         vehicle
+    #         for vehicle in self.road.vehicles
+    #         if vehicle in self.controlled_vehicles
+    #         or not (is_leaving(vehicle) or vehicle.route is None)
+    #     ]
     def _clear_vehicles(self) -> None:
-        is_leaving = (
-            lambda vehicle: "il" in vehicle.lane_index[0]
-            and "o" in vehicle.lane_index[1]
-            and vehicle.lane.local_coordinates(vehicle.position)[0]
-            >= vehicle.lane.length - 4 * vehicle.LENGTH
-        )
-        self.road.vehicles = [
-            vehicle
-            for vehicle in self.road.vehicles
-            if vehicle in self.controlled_vehicles
-            or not (is_leaving(vehicle) or vehicle.route is None)
-        ]
+        pass
 
-    def has_arrived(self, vehicle: Vehicle, exit_distance: float = 25) -> bool:
+    def has_arrived(self, vehicle: Vehicle, exit_distance: float = 45) -> bool:
         return (
             "il" in vehicle.lane_index[0]
             and "o" in vehicle.lane_index[1]
@@ -347,13 +350,13 @@ class MultiAgentIntersectionEnv(IntersectionEnv):
                         "type": "DiscreteMetaAction",
                         "lateral": False,
                         "longitudinal": True,
+                        "target_speeds": [0, 4.5, 9],
                     },
                 },
                 "observation": {
                     "type": "MultiAgentObservation",
                     "observation_config": {"type": "Kinematics"},
                 },
-                "controlled_vehicles": 2,
             }
         )
         return config

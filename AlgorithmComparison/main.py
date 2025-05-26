@@ -7,8 +7,8 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 
 # 导入算法模块
-from AlgorithmComparison.FCFS import FCFS
-from AlgorithmComparison.RotatingIDM import RotatingIDM
+from AlgorithmComparison.FCFS import fcfs_predict
+from AlgorithmComparison.RotatingIDM import rotating_predict
 
 # 导入仿真环境
 import highway_env
@@ -33,15 +33,16 @@ SELECTED_ALGORITHM = "FCFS"
 
 def main():
     # 选择算法，如出现错误，则错误处理，抛出异常
-    algo_map = {
-        'FCFS': FCFS,
-        'Rotating-IDM': RotatingIDM,
+    algorithm_map = {
+        'FCFS': fcfs_predict,
+        'Rotating': rotating_predict
     }
-    if SELECTED_ALGORITHM not in algo_map:
+    if SELECTED_ALGORITHM not in algorithm_map:
         raise ValueError(f"未知的算法：'{SELECTED_ALGORITHM}'，请重新选择算法！")
     
     # 创建环境
-    env = gym.make('intersection-v0',render_mode='rgb_array')
+    env = gym.make('intersection-multi-agent-v0',render_mode='rgb_array')
+    
     # 设置仿真次数
     for i in range(20):
         # 设置视频保存配置
@@ -63,7 +64,12 @@ def main():
         obs, info = env.reset()
         done = truncated = False
         while not (done or truncated):
-            action = 1
+            if SELECTED_ALGORITHM == "FCFS":
+                action = algorithm_map[SELECTED_ALGORITHM](env)
+            if SELECTED_ALGORITHM == "Rotating-IDM":
+                action = algorithm_map[SELECTED_ALGORITHM](env)
+            
+            # print(f"第{i}轮仿真，当前状态：{obs}, 当前动作：{action}")
             obs, reward, done , truncated, info = env.step(action)
         
             # 获取当前画面并添加到视频中

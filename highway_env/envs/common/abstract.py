@@ -201,8 +201,9 @@ class AbstractEnv(gym.Env):
         """
         # 在这之前未设置随机数种子
         # 这里随机选择一个随机数种子，并调用 super().reset()方法设置
-        seed_list = [0, 2000, 2024]
-        seed = random.choice(seed_list)
+        # seed_list = [0, 2000, 2024]
+        # seed = random.choice(seed_list)
+        seed = random.randint(0, 2**32 - 1)
         self.seed = seed
         super().reset(seed=seed, options=options)
         
