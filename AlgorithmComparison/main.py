@@ -14,6 +14,7 @@ from AlgorithmComparison.RotatingIDM import rotating_predict
 import highway_env
 
 # 导入辅助库
+from stable_baselines3 import PPO
 import gymnasium as gym
 import imageio
 import openpyxl
@@ -27,21 +28,29 @@ warnings.filterwarnings("ignore")
 
 # ================================
 # 选择算法进行对比
-# 可选：FCFS, Rotating-IDM
+# 可选：FCFS, Rotating-IDM, PPO
 # ================================
-SELECTED_ALGORITHM = "Rotating-IDM"
+SELECTED_ALGORITHM = "PPO"
 
 def main():
     # 选择算法，如出现错误，则错误处理，抛出异常
     algorithm_map = {
         'FCFS': fcfs_predict,
-        'Rotating-IDM': rotating_predict
+        'Rotating-IDM': rotating_predict,
+        'PPO': None, 
     }
     if SELECTED_ALGORITHM not in algorithm_map:
         raise ValueError(f"未知的算法：'{SELECTED_ALGORITHM}'，请重新选择算法！")
     
     # 创建环境
-    env = gym.make('intersection-multi-agent-v0',render_mode='rgb_array')
+    if SELECTED_ALGORITHM == "FCFS" or SELECTED_ALGORITHM == "Rotating-IDM":
+        env = gym.make('intersection-multi-agent-v0',render_mode='rgb_array')
+    elif SELECTED_ALGORITHM == "PPO":
+        env = gym.make('hybrid_intersection-multi-agent-v0', render_mode='rgb_array')
+        
+    # 创建模型
+    if SELECTED_ALGORITHM == "PPO":
+        model = PPO.load(os.path.join(root_dir, 'log/ppo_v2/model'))
     
     # 设置仿真次数
     for i in range(20):
@@ -66,10 +75,16 @@ def main():
         while not (done or truncated):
             if SELECTED_ALGORITHM == "FCFS":
                 action = algorithm_map[SELECTED_ALGORITHM](env)
-            if SELECTED_ALGORITHM == "Rotating-IDM":
+            elif SELECTED_ALGORITHM == "Rotating-IDM":
                 action = algorithm_map[SELECTED_ALGORITHM](env)
+            elif SELECTED_ALGORITHM == "PPO":
+                action = tuple(int(model.predict(obs_i)[0]) for obs_i in obs)
             
             obs, reward, done , truncated, info = env.step(action)
+            
+            # 处理多车的 done 状态
+            if SELECTED_ALGORITHM == "PPO":
+                done = any(done)
         
             # 获取当前画面并添加到视频中
             frame = env.render()

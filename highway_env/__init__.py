@@ -46,5 +46,9 @@ def _register_highway_envs():
         entry_point="highway_env.envs.intersection_env:MultiAgentIntersectionEnv",
         additional_wrappers=(MultiAgentWrapper.wrapper_spec(),),
     )
-
+    register(
+        id="hybrid_intersection-multi-agent-v0",
+        entry_point="highway_env.envs.hybrid_intersection_env:MultiAgentIntersectionEnv",
+        additional_wrappers=(MultiAgentWrapper.wrapper_spec(),),
+    )
 _register_highway_envs()
