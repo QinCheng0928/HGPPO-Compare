@@ -69,7 +69,6 @@ def main():
             if SELECTED_ALGORITHM == "Rotating-IDM":
                 action = algorithm_map[SELECTED_ALGORITHM](env)
             
-            # print(f"第{i}轮仿真，当前状态：{obs}, 当前动作：{action}")
             obs, reward, done , truncated, info = env.step(action)
         
             # 获取当前画面并添加到视频中
