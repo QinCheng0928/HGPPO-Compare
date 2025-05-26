@@ -1,0 +1,1 @@
+The collision rate is 2 / 20 = 10% .
