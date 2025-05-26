@@ -121,7 +121,7 @@ class EnvViewer:
             return
 
         # self.sim_surface.move_display_window_to(self.window_position())
-        self.sim_surface.move_display_window_to(np.array([0.0, 5.0]))
+        self.sim_surface.move_display_window_to(np.array([0.0, 10.0]))
         RoadGraphics.display(self.env.road, self.sim_surface)
 
         if self.vehicle_trajectory:

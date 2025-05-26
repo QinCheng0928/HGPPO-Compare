@@ -47,7 +47,7 @@ class IntersectionEnv(AbstractEnv):
                 "screen_width": 608,
                 "screen_height": 608,
                 "centering_position": [0.5, 0.6],
-                "scaling": 5.5 * 1.3,
+                "scaling": 4.5,
                 "collision_reward": -30,
                 "high_speed_reward": 3,
                 "arrived_reward": 5, 
@@ -162,7 +162,7 @@ class IntersectionEnv(AbstractEnv):
         right_turn_radius = lane_width + 5  # [m}
         left_turn_radius = right_turn_radius + lane_width  # [m}
         outer_distance = right_turn_radius + lane_width / 2
-        access_length = 20  # [m]
+        access_length = 50  # [m]
 
         net = RoadNetwork()
         n, c, s = LineType.NONE, LineType.CONTINUOUS, LineType.STRIPED
