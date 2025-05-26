@@ -5,8 +5,5 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 
 
 def rotating_predict(env):
-    print("开始运行Rotating-IDM算法...")
-
-
 
     return (1, 1, 1)

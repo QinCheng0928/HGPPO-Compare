@@ -29,13 +29,13 @@ warnings.filterwarnings("ignore")
 # 选择算法进行对比
 # 可选：FCFS, Rotating-IDM
 # ================================
-SELECTED_ALGORITHM = "FCFS"
+SELECTED_ALGORITHM = "Rotating-IDM"
 
 def main():
     # 选择算法，如出现错误，则错误处理，抛出异常
     algorithm_map = {
         'FCFS': fcfs_predict,
-        'Rotating': rotating_predict
+        'Rotating-IDM': rotating_predict
     }
     if SELECTED_ALGORITHM not in algorithm_map:
         raise ValueError(f"未知的算法：'{SELECTED_ALGORITHM}'，请重新选择算法！")
