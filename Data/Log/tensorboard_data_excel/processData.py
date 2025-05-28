@@ -49,7 +49,7 @@ def calculate_confidence_interval(df, step_col='Step', confidence=0.6):
     ci_upper = mean_vals + t_crit * se
     return mean_vals, ci_lower, ci_upper
 
-def plot_mean_with_ci(step_threshold=30000):
+def plot_mean_with_ci():
     plt.figure(figsize=(12, 8))
     
     for key in file_name.keys():
@@ -59,29 +59,25 @@ def plot_mean_with_ci(step_threshold=30000):
             continue
 
         df = pd.read_csv(file_path)
-        df_filtered = df[(df['Step'] <= step_threshold) & df['Mean'].notna() & df['CI_lower'].notna() & df['CI_upper'].notna()]
-        
-        if df_filtered.empty:
-            print(f"[ERROR]{key} 文件中无符合条件的数据，跳过")
-            continue
-
-        steps = df_filtered['Step']
-        mean_vals = df_filtered['Mean']
-        ci_lower = df_filtered['CI_lower']
-        ci_upper = df_filtered['CI_upper']
+        steps = df['Step']
+        mean_vals = df['Mean']
+        ci_lower = df['CI_lower']
+        ci_upper = df['CI_upper']
 
         plt.plot(steps, mean_vals, label=f"{key} 平均值")
         plt.fill_between(steps, ci_lower, ci_upper, alpha=0.3)
 
     plt.xlabel('Step')
     plt.ylabel('数值')
-    plt.title(f'平均值及置信区间（Step ≤ {step_threshold}）')
+    plt.title(f'平均值及置信区间')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.show()
 
 def process_all():
+    step_threshold = 30000  # 加在这里，便于复用
+
     # 1. 删除无用列 “Wall time”
     for key, files in file_name.items():
         for file in files:
@@ -113,6 +109,7 @@ def process_all():
                 merged_df = temp_df
             else:
                 merged_df = pd.merge(merged_df, temp_df, on="Step", how="outer")
+
         if merged_df is not None:
             merged_df = merged_df.sort_values("Step")
 
@@ -122,13 +119,20 @@ def process_all():
             merged_df['CI_lower'] = ci_lower
             merged_df['CI_upper'] = ci_upper
 
-            # 4. 保存带置信区间的合并文件
+            # ✅ 仅保留符合条件的数据
+            merged_df = merged_df[(merged_df['Step'] <= step_threshold) & 
+                                  merged_df['Mean'].notna() & 
+                                  merged_df['CI_lower'].notna() & 
+                                  merged_df['CI_upper'].notna()]
+
+            # 4. 保存带置信区间的合并文件（只保存过滤后的数据）
             output_file = os.path.join(script_dir, f"{key}_merged.csv")
             merged_df.to_csv(output_file, index=False)
-            print(f"已保存带置信区间的合并文件：{output_file}")
+            print(f"已保存过滤后的带置信区间的合并文件：{output_file}")
 
     # 5. 绘图
     plot_mean_with_ci()
+
 
 if __name__ == "__main__":
     process_all()
